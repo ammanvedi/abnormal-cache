@@ -1,7 +1,7 @@
 {
-  "name": "teller-js",
+  "name": "abnormal-cache",
   "version": "10.3.2",
-  "description": "A library for identifying trends and future forecasting of bank transactions",
+  "description": "Normalised caching through object structure inference",
   "main": "dist/index.js",
   "repository": {
     "type": "git",

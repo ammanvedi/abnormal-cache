@@ -4,7 +4,8 @@ You can edit this file as you like.
 -}
 { name = "teller"
 , dependencies =
-  [ "arrays"
+  [ "argonaut"
+  , "arrays"
   , "assert"
   , "console"
   , "datetime"
@@ -13,6 +14,8 @@ You can edit this file as you like.
   , "enums"
   , "foldable-traversable"
   , "folds"
+  , "foreign"
+  , "foreign-object"
   , "integers"
   , "js-date"
   , "lists"

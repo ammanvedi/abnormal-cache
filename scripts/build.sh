@@ -1,1 +1,1 @@
-spago bundle-module -t dist/index.js -x -m Data.Teller && cp src/types/index.d.ts dist
+spago bundle-module -t dist/index.js -x -m Cache.Abnormal && cp src/types/index.d.ts dist
