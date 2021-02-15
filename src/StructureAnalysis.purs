@@ -2,120 +2,117 @@ module Data.Abnormal.StructureAnalysis where
 
 import Data.Tuple
 
-import Data.Argonaut (Json, caseJson, fromObject, fromString, jsonEmptyObject, stringify, toObject)
+import Data.Argonaut (Json, caseJson, fromObject, fromString, jsonEmptyObject, jsonSingletonObject, stringify, toObject)
 import Data.Array (snoc, concat)
 import Data.Eq (class Eq)
+import Data.Functor (map)
 import Data.Maybe (Maybe(..))
 import Data.Show (class Show, show)
 import Data.Traversable (Accum, foldl, mapAccumL)
 import Foreign.Object as FO
 import Prelude (otherwise, ($), (&&), (<>), (==))
-
-type ObjKey = String
-
-data ObjValue
-    = ValEmpty
-    | ValBoolean Boolean
-    | ValString String
-    | ValNumber Number
-    | ValObject (FO.Object Json) ObjSchema
-
-instance objValEq :: Eq ObjValue where
-    eq ValEmpty ValEmpty = true
-    eq (ValBoolean a) (ValBoolean b) = a == b
-    eq (ValString a) (ValString b) = a == b
-    eq (ValNumber a) (ValNumber b) = a == b
-    eq (ValObject a schemaA) (ValObject b schemaB) = schemaA == schemaB
-    eq _ _ = false
-
-instance objValShow :: Show ObjValue where
-    show (ValBoolean b)         = "BOOLEAN"
-    show ValEmpty               = "EMPTY"
-    show (ValString s)          = "STRING"
-    show (ValNumber n)          = "NUMBER"
-    show (ValObject o schema)   = show schema
-
-data ObjProperty = ObjProperty ObjKey ObjValue
-
-instance eqObjProperty :: Eq ObjProperty where
-    eq (ObjProperty ka va) (ObjProperty kb vb) = keyMatch && valMatch
-        where
-            keyMatch = ka == kb
-            valMatch = va == vb
-
-instance objPropertyShow :: Show ObjProperty where
-    show (ObjProperty k v) = k <> "::" <> show v
-
-type ObjSchema = Array ObjProperty
-
-handleTraverseJsonObject :: FO.Object Json -> FO.Object Json -> String -> ObjProperty
-handleTraverseJsonObject parent child k
-     = ObjProperty k (ValObject newO childSchema)
-    where
-        childSchema = traverseJson child
-        keyValue = fromString (genCacheKey childSchema)
-        newO = FO.insert k keyValue parent
-
-traverseJsonPosition :: Json -> ObjSchema -> (Tuple String Json) -> Accum ObjSchema Json
-traverseJsonPosition parent schema (Tuple key json) = { accum: (snoc schema posResult), value: parent }
-    where
-        jsonAsObject =
-            case toObject parent of
-                (Just j) -> j
-                Nothing -> FO.empty
-        posResult = caseJson
-                (\u -> ObjProperty key ValEmpty)
-                (\b -> ObjProperty key (ValBoolean b))
-                (\n -> ObjProperty key (ValNumber n))
-                (\s -> ObjProperty key (ValString s))
-                (\a -> ObjProperty key ValEmpty)
-                (\o -> handleTraverseJsonObject jsonAsObject o key)
-                json
-
-
-traverseJson :: FO.Object Json -> ObjSchema
-traverseJson o = tResult.accum
-    where
-        withKeys = FO.toArrayWithKey (\k v -> (Tuple k v)) o
-        tResult = mapAccumL (traverseJsonPosition (fromObject o)) [] withKeys
+import Debug.Trace
 
 type CacheKey = String
 
-newtype CacheReference 
-    = CacheReference CacheKey
+type PartialCacheKey = String
 
-data NormalisedCacheObject 
-    = NormalisedCacheObject CacheKey (FO.Object Json)
-    | EmptyNormalisedObject
+type CacheEntries = Array CacheEntry
 
-instance showNormalisedCacheObject :: Show NormalisedCacheObject where
-    show (NormalisedCacheObject key o) = "\n KEY :: " <> key <> "\n RAW :: " <> (stringify (fromObject o)) <> "\n"
-    -- show (NormalisedCacheObject key o) = "\n" <> key
-    show EmptyNormalisedObject = "EMPTY_CACHE_OBJECT"
+data CacheEntry = CacheEntry String (FO.Object Json)
 
-instance eqNormalisedCacheObject :: Eq NormalisedCacheObject where
-    eq (NormalisedCacheObject ka _) (NormalisedCacheObject kb _) = ka == kb
-    eq EmptyNormalisedObject EmptyNormalisedObject = true
-    eq _ _ = false  
+instance showCacheEntry :: Show CacheEntry where
+    show (CacheEntry key obj) = "\n key: " <> key <> "\n val: " <> (stringify $ fromObject obj)
 
-type NormalisedCacheObjects 
-    = Array NormalisedCacheObject
+instance eqCacheEntry :: Eq CacheEntry where
+    eq (CacheEntry ka _) (CacheEntry kb _) = ka == kb
 
+data CacheCtx = CacheCtx CacheEntry CacheEntries
 
-genCacheKey :: ObjSchema -> String
-genCacheKey schema = show schema
+instance showCacheCtx :: Show CacheCtx where
+    show (CacheCtx ent ents) =
+        "Current Entry: \n" <> (show ent) <> "\n\n Cache:\n" <>
+        foldl (\acc entS -> acc <> entS <> "\n") "" strings
+        where
+            strings = map (\entC -> show entC) ents
 
-flattenDataObject :: ObjSchema -> (FO.Object Json) -> NormalisedCacheObjects
-flattenDataObject [] _ = []
-flattenDataObject schema o =
-    foldl (\acc (ObjProperty key val) -> 
-        case val of
-            (ValObject nestedObj nestedSchema) -> concat ([
-                acc,
-                (flattenDataObject nestedSchema nestedObj)
-            ])
-            otherwise -> acc
-    ) [topLevelKey] schema
+instance eqCacheCtx :: Eq CacheCtx where
+    eq a b = false
+
+createReferenceLinkInObject :: FO.Object Json -> String -> CacheKey -> FO.Object Json
+createReferenceLinkInObject obj key cacheKey =
+    FO.insert key refObject obj
     where
-        topLevelKey = NormalisedCacheObject (genCacheKey schema) o
+        refValue = fromString cacheKey
+        refObject = jsonSingletonObject "__CACHEREF__" refValue
 
+initialContext :: FO.Object Json -> CacheEntries -> CacheCtx
+initialContext o b = CacheCtx (CacheEntry "" o) b
+
+updateCtxKey :: CacheCtx -> String -> String -> CacheCtx
+updateCtxKey ctx keyName typeName =
+    CacheCtx (
+        CacheEntry newKey obj
+    ) entries
+    where
+        (CacheCtx entry entries) = ctx
+        (CacheEntry key obj) = entry
+        newKey = key <> "(" <> keyName <> ":" <> typeName <> ")"
+
+addCtxCacheEntry :: CacheCtx -> CacheEntry -> CacheCtx
+addCtxCacheEntry ctx ent =
+    CacheCtx entry (snoc entries ent)
+    where
+        (CacheCtx entry entries) = ctx
+
+addCtxCacheEntries :: CacheCtx -> CacheEntries -> CacheCtx
+addCtxCacheEntries ctx ents =
+    CacheCtx entry (concat [entries, ents])
+    where
+        (CacheCtx entry entries) = ctx
+
+createCtxCacheLink :: CacheCtx -> String -> String -> CacheCtx
+createCtxCacheLink ctx keyName linkKey =
+    CacheCtx (
+        CacheEntry currentKey newObj
+    ) entries
+    where
+        (CacheCtx entry entries) = ctx
+        (CacheEntry currentKey obj) = entry
+        newObj = createReferenceLinkInObject obj keyName linkKey
+
+normalise :: FO.Object Json -> CacheEntries -> CacheCtx
+normalise obj baseCache = cacheResult
+    where
+    freshCacheObject = initialContext obj baseCache
+    cacheResult = FO.fold 
+        (\acc key val -> 
+        let 
+            (CacheCtx parentEntry parentEntries) = acc
+            (CacheEntry parentKey parentObj) = parentEntry
+        in
+        caseJson
+            (\u -> updateCtxKey acc key "null")
+            (\b -> updateCtxKey acc key "bool")
+            (\n -> updateCtxKey acc key "num")
+            (\s -> updateCtxKey acc key "str")
+            (\a -> updateCtxKey acc key "arr")
+            (\child -> 
+                let 
+                    (CacheCtx childEntry childEntries) = spy "recurseResult" $ normalise child parentEntries
+                    (CacheEntry childKey childObj) = childEntry
+                in
+                case (FO.lookup "id" child) of
+                    (Just idVal) -> 
+                        let 
+                            addNestedEntries = addCtxCacheEntries acc childEntries
+                            childEntryAdded = addCtxCacheEntry addNestedEntries (CacheEntry childKey childObj)
+                            keyAdded = updateCtxKey childEntryAdded (stringify idVal) childKey
+                            linkAdded = createCtxCacheLink keyAdded key childKey 
+                        in
+                            spy "linkAdded" $ linkAdded
+                    Nothing -> updateCtxKey acc key childKey
+            )
+            val
+        ) freshCacheObject obj
+    (CacheCtx currentEntryResult _) = cacheResult
