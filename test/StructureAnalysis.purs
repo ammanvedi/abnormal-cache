@@ -1,9 +1,10 @@
 module Test.StructureAnalysis where
 
 import Data.Abnormal.StructureAnalysis (initialContext, normalise)
-import Data.Argonaut (Json, jsonParser, jsonZero, stringify)
+import Data.Argonaut (Json, jsonParser, jsonZero, stringify, toObject)
 import Data.Either (Either(..))
 import Data.Functor (map)
+import Data.Maybe (Maybe(..))
 import Data.Show (show)
 import Foreign.Object as FO
 import Prelude (Unit, discard)
@@ -43,7 +44,14 @@ testJsonSimple = jsonParser
                 "c": {
                     "id": "childID",
                     "d": false
-                }
+                },
+                "d": [
+                    "e",
+                    {
+                        "id": "arrId",
+                        "f": "g"
+                    }
+                ]
             }
 
         """
@@ -73,18 +81,10 @@ structureAnalysisSpec =
                 case testJsonSimple of
                     Left s -> shouldEqual true false
                     Right j -> do
-                        let emp = FO.empty
-                        let o = FO.insert "root" j emp
-                        let res = normalise o []
-                        -- shouldEqual schema []
-                        -- shouldEqual res.key ""
-                        -- shouldEqual res.children []
-                        shouldEqual res (initialContext FO.empty [])
-
--- [
---  KEY :: b:STRING,c: {d:BOOLEAN,}
---  RAW :: {"b":"b-value","c":"[{ d: BOOLEAN }]"}
--- ,
---  KEY :: root: {b:STRING,c: {d:BOOLEAN,}}
---  RAW :: {"root":"[{ b: STRING },{ c: [{ d: BOOLEAN }] }]"}
--- ]
+                        case toObject j of
+                            (Just o) -> 
+                                let
+                                    res = normalise o [] Nothing
+                                in
+                                shouldEqual res (initialContext FO.empty [])
+                            Nothing -> shouldEqual false true

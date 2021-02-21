@@ -1,6 +1,7 @@
 module Data.Abnormal.StructureAnalysis where
 
 import Data.Tuple
+import Debug.Trace
 
 import Data.Argonaut (Json, caseJson, fromObject, fromString, jsonEmptyObject, jsonSingletonObject, stringify, toObject)
 import Data.Array (snoc, concat)
@@ -10,8 +11,7 @@ import Data.Maybe (Maybe(..))
 import Data.Show (class Show, show)
 import Data.Traversable (Accum, foldl, mapAccumL)
 import Foreign.Object as FO
-import Prelude (otherwise, ($), (&&), (<>), (==))
-import Debug.Trace
+import Prelude (otherwise, ($), (&&), (<>), (==), pure)
 
 type CacheKey = String
 
@@ -81,10 +81,29 @@ createCtxCacheLink ctx keyName linkKey =
         (CacheEntry currentKey obj) = entry
         newObj = createReferenceLinkInObject obj keyName linkKey
 
-normalise :: FO.Object Json -> CacheEntries -> CacheCtx
-normalise obj baseCache = cacheResult
+
+normaliseArray :: Array Json -> CacheEntries -> CacheCtx -> CacheCtx
+normaliseArray arr baseCache ctx = 
+    foldl (\acc jsonVal -> 
+        let
+            valueWrapper = FO.empty
+            wrapped = FO.insert "root" jsonVal valueWrapper
+            result = normalise wrapped baseCache (pure acc)
+        in
+            case FO.lookup "root" of
+                (Just val) -> val
+                Nothing -> val
+
+    ) ctx arr
+
+
+normalise :: FO.Object Json -> CacheEntries -> (Maybe CacheCtx) -> CacheCtx
+normalise obj baseCache ctxMaybe = cacheResult
     where
-    freshCacheObject = initialContext obj baseCache
+    freshCacheObject = 
+        case ctxMaybe of
+            (Just ctx) -> ctx
+            Nothing -> initialContext obj baseCache
     cacheResult = FO.fold 
         (\acc key val -> 
         let 
@@ -96,10 +115,10 @@ normalise obj baseCache = cacheResult
             (\b -> updateCtxKey acc key "bool")
             (\n -> updateCtxKey acc key "num")
             (\s -> updateCtxKey acc key "str")
-            (\a -> updateCtxKey acc key "arr")
+            (\childArr -> normaliseArray childArr parentEntries acc)
             (\child -> 
                 let 
-                    (CacheCtx childEntry childEntries) = spy "recurseResult" $ normalise child parentEntries
+                    (CacheCtx childEntry childEntries) = normalise child parentEntries (pure acc)
                     (CacheEntry childKey childObj) = childEntry
                 in
                 case (FO.lookup "id" child) of
@@ -110,9 +129,8 @@ normalise obj baseCache = cacheResult
                             keyAdded = updateCtxKey childEntryAdded (stringify idVal) childKey
                             linkAdded = createCtxCacheLink keyAdded key childKey 
                         in
-                            spy "linkAdded" $ linkAdded
+                            linkAdded
                     Nothing -> updateCtxKey acc key childKey
             )
             val
         ) freshCacheObject obj
-    (CacheCtx currentEntryResult _) = cacheResult
