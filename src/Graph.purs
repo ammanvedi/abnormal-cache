@@ -3,21 +3,26 @@ module Data.Abnormal.Graph where
 import Data.Argonaut (Json)
 import Data.Map (Map, insert)
 import Data.Array (snoc)
+import Foreign.Object (Object)
 
 type EntityId = String
 type CacheKey = String
 type PropertyName = String
 
 data NodeData =
-      CachedObject CacheKey
-    | CachedOperation CacheKey
-    | ValuePrimitive Json
+      CachedObject
+    | CachedOperation
+    | ValueNull
+    | ValueBoolean Boolean
+    | ValueString String
+    | ValueNumber Number
+    | ValueUncacheableObject
     | ValueArray
 
 data EdgeData =
       ReferenceEdge
     | PropertyEdge PropertyName
-    | IndexEdge Number
+    | IndexEdge Int
 
 data Node = Node EntityId NodeData
 
@@ -34,6 +39,9 @@ addEdge (Graph nodes edges) edge
         in
             Graph nodes newEdges
 
+-- check if exact edge exists
+-- if it does do not add it
+
 addNode :: Graph -> Node -> Graph
 addNode (Graph nodes edges) (Node entityId nodeData)
     = 
@@ -42,3 +50,8 @@ addNode (Graph nodes edges) (Node entityId nodeData)
         in
             Graph newGraph edges
 
+hasNode :: Graph -> EntityId -> Boolean
+hasNode g e =   
+ -- when adding a noce check if it exists already
+ -- if it exists delete the old node
+ -- delete outgoing edges
