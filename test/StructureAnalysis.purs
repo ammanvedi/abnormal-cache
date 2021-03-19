@@ -1,6 +1,6 @@
 module Test.StructureAnalysis where
 
-import Data.Abnormal.StructureAnalysis (initialContext, normalise)
+import Data.Abnormal.StructureAnalysis (addOperationResultToGraph, createGraph)
 import Data.Argonaut (Json, jsonParser, jsonZero, stringify, toObject)
 import Data.Either (Either(..))
 import Data.Functor (map)
@@ -42,7 +42,6 @@ testJsonSimple = jsonParser
                 "id": "parentID",
                 "b": "b-value",
                 "c": {
-                    "id": "childID",
                     "d": false
                 },
                 "d": [
@@ -60,31 +59,11 @@ structureAnalysisSpec :: Spec Unit
 structureAnalysisSpec =
     describe "StructureAnalysis" do 
         describe "traverseJson" do
-            -- it "Generates a basic schema correctly" do
-            --     case testJsonSimple of
-            --         Left s -> shouldEqual true false
-            --         Right j -> do
-            --             let emp = FO.empty
-            --             let o = FO.insert "dta" j emp
-            --             let res = traverseJson o
-            --             shouldEqual res []
-            -- it "Generates flattened representation correctly" do
-            --     case testJsonSimple of
-            --         Left s -> shouldEqual true false
-            --         Right j -> do
-            --             let emp = FO.empty
-            --             let o = FO.insert "root" j emp
-            --             let schema = traverseJson o
-            --             let res = flattenDataObject schema o
-            --             shouldEqual res []
             it "Generates flattened representation correctly" do
                 case testJsonSimple of
                     Left s -> shouldEqual true false
-                    Right j -> do
-                        case toObject j of
-                            (Just o) -> 
-                                let
-                                    res = normalise o [] Nothing
-                                in
-                                shouldEqual res (initialContext FO.empty [])
-                            Nothing -> shouldEqual false true
+                    Right j ->
+                        let
+                            res = addOperationResultToGraph createGraph "testOperation" j
+                        in
+                            shouldEqual res createGraph
