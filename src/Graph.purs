@@ -1,9 +1,9 @@
 module Data.Abnormal.Graph where 
 
-import Data.Array (snoc)
-import Data.Eq (eq, class Eq)
+import Data.Array (snoc, filter)
+import Data.Eq (eq, class Eq, (/=))
 import Data.Foldable (foldl)
-import Data.Map (Map, insert, values)
+import Data.Map (Map, insert, values, delete, member)
 import Data.Show (show, class Show)
 import Data.Tuple (Tuple(..))
 import Prelude ((<>), (==), (&&))
@@ -109,15 +109,25 @@ addEdge (Graph nodes edges) edge
 -- if it does do not add its
 
 addNode :: Graph -> Node -> Graph
-addNode (Graph nodes edges) (Node entityId nodeData)
+addNode g (Node entityId nodeData)
     = 
         let
-            newGraph = insert entityId (Node entityId nodeData) nodes
+            (Graph nodes edges) = 
+                (removeOutgoingEdges (removeNode g entityId) entityId)
+            newNodeGraph = insert entityId (Node entityId nodeData) nodes
         in
-            Graph newGraph edges
+            Graph newNodeGraph edges
 
--- hasNode :: Graph -> EntityId -> Boolean
--- hasNode g e =   
- -- when adding a noce check if it exists already
- -- if it exists delete the old node
- -- delete outgoing edges
+hasNode :: Graph -> EntityId -> Boolean
+hasNode (Graph nodes edges) id =   
+    member id nodes
+
+removeOutgoingEdges :: Graph -> EntityId -> Graph
+removeOutgoingEdges (Graph nodes edges) fromNode
+    = Graph nodes filteredEdges
+        where
+            filteredEdges = filter (\(Edge id (EdgeConnection from to) edgeData) -> from /= fromNode ) edges
+
+removeNode :: Graph -> EntityId -> Graph
+removeNode (Graph nodes edges) id =
+    Graph (delete id nodes) edges

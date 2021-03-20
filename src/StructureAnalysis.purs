@@ -51,11 +51,11 @@ genCacheKey obj id =
     fold (\accKey key json ->
             caseJson
                 (\u -> accKey <> genKeyString key "null")
-                (\b -> accKey <> genKeyString key "boolean")
-                (\n -> accKey <> genKeyString key "number")
-                (\s -> accKey <> genKeyString key "string")
-                (\a -> accKey <> genKeyString key "array")
-                (\o -> accKey <> genKeyString key "object")
+                (\b -> accKey <> genKeyString key "bl")
+                (\n -> accKey <> genKeyString key "nm")
+                (\s -> accKey <> genKeyString key "st")
+                (\a -> accKey <> genKeyString key "ar")
+                (\o -> accKey <> genKeyString key "ob")
                 json
         ) (id <> "::") obj
 

@@ -52,6 +52,121 @@ testJsonSimple = jsonParser
                     }
                 ]
             }
+
+        """
+
+testJsonUncacheable :: Either String Json
+testJsonUncacheable = jsonParser
+        """
+        {
+            "strVal": "val",
+            "numVal": 1,
+            "boolVal": false,
+            "arrVal": [
+                "arrStr",
+                true,
+                567,
+                [
+                    {
+                        "nestedArrayVal": 100
+                    }
+                ]
+            ],
+            "objVal": {
+                "strValNested": "val",
+                "numValNested": 1,
+                "boolValNested": false,
+                "arrValNested": [
+                    "arrStrNested",
+                    true,
+                    567
+                ]
+            }
+        }
+        """
+
+testJsonCacheable :: Either String Json
+testJsonCacheable = jsonParser
+        """
+        {
+            "id": "ONE",
+            "strVal": "val",
+            "numVal": 1,
+            "boolVal": false,
+            "arrVal": [
+                "arrStr",
+                true,
+                567,
+                [
+                    {
+                        "id": "TWO",
+                        "nestedArrayVal": 100
+                    }
+                ]
+            ],
+            "objVal": {
+                "id": "THREE",
+                "strValNested": "val",
+                "numValNested": 1,
+                "boolValNested": false,
+                "arrValNested": [
+                    "arrStrNested",
+                    true,
+                    567
+                ]
+            }
+        }
+        """
+
+testJsonMultipleOfSameCacheable :: Either String Json
+testJsonMultipleOfSameCacheable = jsonParser
+        """
+        {
+            "child": {
+                "id": "ONE",
+                "data": "X"
+            },
+            "childTwo": {
+                "id": "ONE",
+                "data": "X"
+            }
+        }
+        """
+
+testJsonRootArray :: Either String Json
+testJsonRootArray = jsonParser
+        """
+        [
+            "arrStr",
+            true,
+            567,
+            [
+                {
+                    "id": "TWO",
+                    "nestedArrayVal": 100
+                }
+            ]
+        ]
+        """
+
+testJsonUpdateCacheStart :: Either String Json
+testJsonUpdateCacheStart = jsonParser
+        """
+        {
+            "id": "1234-4567",
+            "name": "Benny",
+            "age": 10
+        }
+        """
+
+testJsonUpdateCacheEnd :: Either String Json
+testJsonUpdateCacheEnd = jsonParser
+        """
+        {
+            "id": "1234-4567",
+            "name": "Johnny",
+            "age": 10
+        }
         """
 
 structureAnalysisSpec :: Spec Unit
