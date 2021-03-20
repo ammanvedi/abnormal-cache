@@ -52,7 +52,6 @@ testJsonSimple = jsonParser
                     }
                 ]
             }
-
         """
 
 structureAnalysisSpec :: Spec Unit

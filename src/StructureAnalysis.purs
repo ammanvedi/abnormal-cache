@@ -9,6 +9,7 @@ import Data.Maybe (Maybe(..))
 import Data.Show (show)
 import Foreign.Object (Object, lookup, fold)
 import Prelude ((<>))
+import Debug.Trace (spy)
 
 createGraph :: Graph
 createGraph = Graph empty []
@@ -72,8 +73,11 @@ addObjectToGraph graph parentId nodeId propertyName object =
                 Nothing -> Node newNodeId ValueUncacheableObject
         baseGraph = addValueNode graph newNode parentId newNodeId propertyName
     in 
-        fold (\accGraph key json ->
-                handleJsonValue baseGraph newNodeId (Left key) json
+        fold (\accGraph key json -> 
+            let 
+                x = spy key "avv"
+            in
+                (handleJsonValue accGraph newNodeId (Left key) json)
             ) baseGraph object
 
 
@@ -127,11 +131,12 @@ handleJsonValue graph parentEntityId propertyName json =
         (\o -> addObjectToGraph graph parentEntityId thisNodeEntityId propertyName o)
         json
     where
-        propertyNameComponent = 
+        propertyNameComponent =
             case propertyName of 
                 Left str -> str
                 Right index -> show index
         thisNodeEntityId = parentEntityId <> "_" <> propertyNameComponent
+        y = spy thisNodeEntityId "abc"
 
 addOperationResultToGraph :: Graph -> CacheKey -> Json -> Graph
 addOperationResultToGraph graph operationKey rootData 
