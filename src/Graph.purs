@@ -86,7 +86,7 @@ data Graph = Graph (Map EntityId Node) (Array Edge)
 
 instance eqGraph :: Eq Graph where
     eq (Graph nodesA edgesA) (Graph nodesB edgesB) = 
-        nodesA == nodesB && edgesA == edgesB
+        (nodesA == nodesB) && (edgesA == edgesB)
 
 instance showGraph :: Show Graph where
     show (Graph nodes edges) = 
@@ -104,9 +104,6 @@ addEdge (Graph nodes edges) edge
             newEdges = snoc edges edge
         in
             Graph nodes newEdges
-
--- check if exact edge exists
--- if it does do not add its
 
 addNode :: Graph -> Node -> Graph
 addNode g (Node entityId nodeData)
